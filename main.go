@@ -1,12 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"net/smtp"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -24,20 +24,8 @@ type properties struct {
 	Port     string
 }
 
-var props properties
-
-func callProperties() {
-	jsonFile, err := os.Open("keys.json")
-	if err != nil {
-		props.Username = os.Getenv("username")
-		props.Password = os.Getenv("password")
-		props.Hostname = os.Getenv("hostname")
-		props.Port = os.Getenv("port")
-	}
-	defer jsonFile.Close()
-
-	decoder := json.NewDecoder(jsonFile)
-	err = decoder.Decode(&props)
+func init() {
+	godotenv.Load(".env")
 }
 
 //----------
@@ -45,14 +33,13 @@ func callProperties() {
 //----------
 
 func sendEmail(c echo.Context) error {
-
 	tmpEmail := new(email)
 	if err := c.Bind(tmpEmail); err != nil {
 		return err
 	}
 
 	// Set up authentication information.
-	auth := smtp.PlainAuth("", props.Username, props.Password, props.Hostname)
+	auth := smtp.PlainAuth("", os.Getenv("USERNAME"), os.Getenv("PASSWORD"), os.Getenv("HOSTNAME"))
 
 	// Connect to the server, authenticate, set the sender and recipient,
 	// and send the email all in one step.
@@ -63,7 +50,7 @@ func sendEmail(c echo.Context) error {
 		"\r\n" +
 		tmpEmail.Body + "\r\n")
 
-	err := smtp.SendMail(props.Hostname+":"+props.Port, auth, props.Username, to, msg)
+	err := smtp.SendMail(os.Getenv("HOSTNAME")+":"+os.Getenv("PORT"), auth, os.Getenv("USERNAME"), to, msg)
 	if err != nil {
 		response = false
 		log.Print("ERROR while attempting to send email: ", err)
@@ -73,9 +60,6 @@ func sendEmail(c echo.Context) error {
 }
 
 func main() {
-
-	callProperties()
-
 	e := echo.New()
 
 	// Middleware
@@ -86,5 +70,4 @@ func main() {
 
 	// Start server
 	e.Logger.Fatal(e.Start(":9090"))
-
 }
